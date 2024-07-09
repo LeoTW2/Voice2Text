@@ -35,7 +35,14 @@ class Swreporter:
         self.prompt = None
         self.system_prompt = None
         # Audio processing settings
-        self.jax_pipeline = FlaxWhisperPipline("openai/whisper_large_v3", dtype=jnp.bfloat16, batch_size=16)
+        self.jax_pipeline = FlaxWhisperPipline("openai/whisper-large-v3", dtype=jnp.bfloat16, batch_size=16)
+        # First run, setup cache
+        random_inputs = {
+            "input_features": np.ones(
+                (32, self.jax_pipeline.model.config.num_mel_bins, 2 * self.jax_pipeline.model.config.max_source_positions)
+            )
+        }
+        self.jax_pipeline.forward(random_inputs, batch_size=32, return_timestamps=True)
         self.dia_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",
                                                      use_auth_token='YOUR_API_KEY').to(torch.device("cuda"))
 
@@ -141,14 +148,6 @@ class Swreporter:
 
     def transcribe(self):
         """Transcribe audio files."""
-        # First run, setup cache
-        random_inputs = {
-            "input_features": np.ones(
-                (32, self.jax_pipeline.model.config.num_mel_bins, 2 * self.jax_pipeline.model.config.max_source_positions)
-            )
-        }
-        self.jax_pipeline.forward(random_inputs, batch_size=32, return_timestamps=True)
-
         soundfiles = [i for i in os.listdir(self.temp_output_dir) if i.endswith('.wav') and 'normalized' in i]
         speeches = []
 
